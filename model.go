@@ -2,7 +2,7 @@ package mgou
 
 import (
 //"encoding/json"
-//"launchpad.net/mgo/bson"
+//"labix.org/v2/mgo/bson"
 )
 
 type DataModel interface {
@@ -11,6 +11,7 @@ type DataModel interface {
 	OidGet() string
 	OidSet(string)
 	Type() string
+	OnLoad()
 }
 
 /*

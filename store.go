@@ -2,22 +2,20 @@ package mgou
 
 import (
 	"errors"
-	"launchpad.net/mgo/v2"
-	"launchpad.net/mgo/v2/bson"
+	"labix.org/v2/mgo"
+	"labix.org/v2/mgo/bson"
 	"sync"
 
 	. "github.com/araddon/gou"
 )
 
 var (
-	mgo_db      string
 	mgo_conn    string
 	mgoMu       sync.Mutex
 	mgoSessions = make(map[string]*MgoSession)
 )
 
-func SetMongoInfo(conn, db string) {
-	mgo_db = db
+func SetMongoInfo(conn string) {
 	mgo_conn = conn
 }
 
@@ -39,7 +37,7 @@ func MgoConnGet(name string) (*mgo.Session, error) {
 		s = new(MgoSession)
 		session, err := mgo.Dial(mgo_conn)
 		if err != nil {
-			Log(ERROR, mgo_conn, " ", err)
+			Log(ERROR, "Error on mgou ?", mgo_conn, " ", err)
 		} else {
 			s.S = session
 		}
@@ -53,7 +51,7 @@ func MgoConnGet(name string) (*mgo.Session, error) {
 }
 
 // Save the DataModel to DataStore 
-func SaveModel(m DataModel, conn *mgo.Session) (err error) {
+func SaveModel(mgo_db string, m DataModel, conn *mgo.Session) (err error) {
 	if conn == nil {
 		conn, err = MgoConnGet(mgo_db)
 		if err != nil {
@@ -62,23 +60,27 @@ func SaveModel(m DataModel, conn *mgo.Session) (err error) {
 		defer conn.Close()
 	}
 	if conn != nil {
-		bsonMid := bson.ObjectId(m.MidGet())
+		bsonMid := m.MidGet()
 		c := conn.DB(mgo_db).C(m.Type())
 		Debug(mgo_db, " type=", m.Type(), " Mid=", bsonMid)
 		if len(bsonMid) < 5 {
-			m.MidSet(bson.NewObjectId().String())
+			//m.MidSet(bson.NewObjectId())
 			Debug("insert ", m)
+			//bs, _ := bson.Marshal(m)
+			//Debug(string(bs))
 			if err = c.Insert(m); err != nil {
 				Log(ERROR, "ERROR on insert ", err, " TYPE=", m.Type(), " ", m.MidGet())
 			} else {
-				Log(WARN, "successfully inserted!!!!!!  ", m.MidGet())
+				Log(WARN, "successfully inserted!!!!!!  ", m.MidGet(), " ", m.OidGet())
 			}
 		} else {
 			// YOU MUST NOT SEND Mid  "_id" to Mongo
+			mid := m.MidGet()
 			m.MidSet("") // omitempty means it doesn't get sent
-			if err = c.Update(bson.M{"_id": bsonMid}, m); err != nil {
+			if err = c.Update(bson.M{"_id": bson.ObjectId(bsonMid)}, m); err != nil {
 				Log(ERROR, "ERROR on update ", err, " ", bsonMid, " MID=?", m.MidGet())
 			}
+			m.MidSet(mid)
 		}
 	} else {
 		Log(ERROR, "Nil connection")
@@ -87,8 +89,8 @@ func SaveModel(m DataModel, conn *mgo.Session) (err error) {
 	return
 }
 
-func ModelsDelete(qry interface{}, dm DataModel) error {
-	if conn, c, ok := GetTableConn(dm); ok {
+func ModelsDelete(mgo_db string, qry interface{}, dm DataModel) error {
+	if conn, c, ok := GetTableConn(mgo_db, dm); ok {
 
 		info, err := c.RemoveAll(qry)
 		Debug(info, " table=", dm.Type())
@@ -103,25 +105,35 @@ func ModelsDelete(qry interface{}, dm DataModel) error {
 	return nil
 }
 
-// Load Models from Mongo
-func ModelsLoad(list interface{}, qry interface{}, dm DataModel) {
-	if conn, c, ok := GetTableConn(dm); ok {
-		iter := c.Find(qry).Iter()
-		err := iter.All(list)
-		if err != nil {
-			Log(ERROR, err)
-		}
-		//for iter.Next(&dm) {
-		//	dm2 := dm
-		//	list = append(list, dm2)
-		//}
+// Load single Model
+func ModelGet(mgo_db string, qry interface{}, dm DataModel) (err error) {
+	if conn, c, ok := GetTableConn(mgo_db, dm); ok {
+		err = c.Find(qry).One(dm)
 		conn.Close()
 	} else {
 		Log(ERROR, "Could not get conn for ", dm.Type())
+		err = errors.New("Could not get db conn")
 	}
+	return
 }
 
-func GetTableConn(dm DataModel) (s *mgo.Session, c *mgo.Collection, ok bool) {
+// Load Models from Mongo
+func ModelsLoad(mgo_db string, list interface{}, qry interface{}, dm DataModel) (err error) {
+	if conn, c, ok := GetTableConn(mgo_db, dm); ok {
+		iter := c.Find(qry).Iter()
+		err = iter.All(list)
+		if err != nil { //&& err.Error() != "not found"
+			Log(ERROR, err)
+		}
+		conn.Close()
+	} else {
+		Log(ERROR, "Could not get conn for ", dm.Type())
+		err = errors.New("Could not get db conn")
+	}
+	return
+}
+
+func GetTableConn(mgo_db string, dm DataModel) (s *mgo.Session, c *mgo.Collection, ok bool) {
 	conn, _ := MgoConnGet(mgo_db)
 	if conn != nil {
 		c := conn.DB(mgo_db).C(dm.Type())
@@ -130,7 +142,7 @@ func GetTableConn(dm DataModel) (s *mgo.Session, c *mgo.Collection, ok bool) {
 	return nil, nil, false
 }
 
-func GetMgoCC(name string) (s *mgo.Session, c *mgo.Collection, ok bool) {
+func GetMgoCC(mgo_db, name string) (s *mgo.Session, c *mgo.Collection, ok bool) {
 	conn, _ := MgoConnGet(mgo_db)
 	if conn != nil {
 		c := conn.DB(mgo_db).C(name)
