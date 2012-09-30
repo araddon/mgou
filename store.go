@@ -37,7 +37,8 @@ func MgoConnGet(name string) (*mgo.Session, error) {
 		s = new(MgoSession)
 		session, err := mgo.Dial(mgo_conn)
 		if err != nil {
-			Log(ERROR, "Error on mgou ?", mgo_conn, " ", err)
+			Logf(ERROR, "Error on mgou ? conn='%s' er=%v", mgo_conn, err)
+			return nil, err
 		} else {
 			s.S = session
 		}
@@ -64,14 +65,17 @@ func SaveModel(mgo_db string, m DataModel, conn *mgo.Session) (err error) {
 		c := conn.DB(mgo_db).C(m.Type())
 		Debug(mgo_db, " type=", m.Type(), " Mid=", bsonMid)
 		if len(bsonMid) < 5 {
-			//m.MidSet(bson.NewObjectId())
+			m.MidSet(bson.NewObjectId())
+			//if oid := m.OidGet(); len(oid) < 1 {
+			//	m.OidSet(bson.NewObjectId().Hex())
+			//}
 			Debug("insert ", m)
 			//bs, _ := bson.Marshal(m)
 			//Debug(string(bs))
 			if err = c.Insert(m); err != nil {
 				Log(ERROR, "ERROR on insert ", err, " TYPE=", m.Type(), " ", m.MidGet())
 			} else {
-				Log(WARN, "successfully inserted!!!!!!  ", m.MidGet(), " ", m.OidGet())
+				Log(WARN, "successfully inserted!!!!!!  ", m.MidGet(), " oid=", m.OidGet())
 			}
 		} else {
 			// YOU MUST NOT SEND Mid  "_id" to Mongo

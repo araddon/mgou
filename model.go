@@ -1,13 +1,13 @@
 package mgou
 
 import (
-//"encoding/json"
-//"labix.org/v2/mgo/bson"
+	//"encoding/json"
+	"labix.org/v2/mgo/bson"
 )
 
 type DataModel interface {
-	MidGet() string
-	MidSet(string)
+	MidGet() bson.ObjectId
+	MidSet(bson.ObjectId)
 	OidGet() string
 	OidSet(string)
 	Type() string
