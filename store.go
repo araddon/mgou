@@ -37,7 +37,7 @@ func MgoConnGet(name string) (*mgo.Session, error) {
 		s = new(MgoSession)
 		session, err := mgo.Dial(mgo_conn)
 		if err != nil {
-			Logf(ERROR, "Error on mgou ? conn='%s' er=%v", mgo_conn, err)
+			Logf(ERROR, "MGOU Error on mgou ? name=%s conn='%s' er=%v", name, mgo_conn, err)
 			return nil, err
 		} else {
 			s.S = session
@@ -63,31 +63,25 @@ func SaveModel(mgo_db string, m DataModel, conn *mgo.Session) (err error) {
 	if conn != nil {
 		bsonMid := m.MidGet()
 		c := conn.DB(mgo_db).C(m.Type())
-		Debug(mgo_db, " type=", m.Type(), " Mid=", bsonMid)
+		//Debug("SAVING ", mgo_db, " type=", m.Type(), " Mid=", bsonMid)
 		if len(bsonMid) < 5 {
 			m.MidSet(bson.NewObjectId())
-			//if oid := m.OidGet(); len(oid) < 1 {
-			//	m.OidSet(bson.NewObjectId().Hex())
-			//}
-			Debug("insert ", m)
-			//bs, _ := bson.Marshal(m)
-			//Debug(string(bs))
 			if err = c.Insert(m); err != nil {
-				Log(ERROR, "ERROR on insert ", err, " TYPE=", m.Type(), " ", m.MidGet())
+				Log(ERROR, "MGOU ERROR on insert ", err, " TYPE=", m.Type(), " ", m.MidGet())
 			} else {
-				Log(WARN, "successfully inserted!!!!!!  ", m.MidGet(), " oid=", m.OidGet())
+				//Log(DEBUG, "successfully inserted!!!!!!  ", m.MidGet(), " oid=", m.OidGet())
 			}
 		} else {
 			// YOU MUST NOT SEND Mid  "_id" to Mongo
 			mid := m.MidGet()
 			m.MidSet("") // omitempty means it doesn't get sent
 			if err = c.Update(bson.M{"_id": bson.ObjectId(bsonMid)}, m); err != nil {
-				Log(ERROR, "ERROR on update ", err, " ", bsonMid, " MID=?", m.MidGet())
+				Log(ERROR, "MGOU ERROR on update ", err, " ", bsonMid, " MID=?", m.MidGet())
 			}
 			m.MidSet(mid)
 		}
 	} else {
-		Log(ERROR, "Nil connection")
+		Log(ERROR, "MGOU Nil connection")
 		return errors.New("no db connection")
 	}
 	return
@@ -97,14 +91,14 @@ func ModelsDelete(mgo_db string, qry interface{}, dm DataModel) error {
 	if conn, c, ok := GetTableConn(mgo_db, dm); ok {
 
 		info, err := c.RemoveAll(qry)
-		Debug(info, " table=", dm.Type())
+		Debug("MGOU ", info, " table=", dm.Type())
 		if err != nil {
-			Log(ERROR, "could not delete items? ", err)
+			Log(ERROR, "MGOU could not delete items? ", err)
 			return err
 		}
 		conn.Close()
 	} else {
-		Log(ERROR, "Could not get conn for ", dm.Type())
+		Log(ERROR, "MGOU Could not get conn for ", dm.Type())
 	}
 	return nil
 }
@@ -115,7 +109,7 @@ func ModelGet(mgo_db string, qry interface{}, dm DataModel) (err error) {
 		err = c.Find(qry).One(dm)
 		conn.Close()
 	} else {
-		Log(ERROR, "Could not get conn for ", dm.Type())
+		Log(ERROR, "MGOU Could not get conn for ", dm.Type())
 		err = errors.New("Could not get db conn")
 	}
 	return
@@ -131,7 +125,7 @@ func ModelsLoad(mgo_db string, list interface{}, qry interface{}, dm DataModel) 
 		}
 		conn.Close()
 	} else {
-		Log(ERROR, "Could not get conn for ", dm.Type())
+		Log(ERROR, "MGOU Could not get conn for ", dm.Type())
 		err = errors.New("Could not get db conn")
 	}
 	return
