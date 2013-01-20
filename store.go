@@ -52,6 +52,33 @@ func MgoConnGet(name string) (*mgo.Session, error) {
 }
 
 // Save the DataModel to DataStore 
+func Insert(mgo_db string, m DataModel, conn *mgo.Session) (err error) {
+	if conn == nil {
+		conn, err = MgoConnGet(mgo_db)
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+	}
+	if conn != nil {
+		c := conn.DB(mgo_db).C(m.Type())
+		if len(m.MidGet()) == 0 {
+			m.MidSet(bson.NewObjectId())
+		}
+		if err = c.Insert(m); err != nil {
+			Log(ERROR, "MGOU ERROR on insert ", err, " TYPE=", m.Type(), " ", m.MidGet())
+		} else {
+			//Log(DEBUG, "successfully inserted!!!!!!  ", m.MidGet(), " oid=", m.OidGet())
+		}
+
+	} else {
+		Log(ERROR, "MGOU Nil connection")
+		return errors.New("no db connection")
+	}
+	return
+}
+
+// Save the DataModel to DataStore 
 func SaveModel(mgo_db string, m DataModel, conn *mgo.Session) (err error) {
 	if conn == nil {
 		conn, err = MgoConnGet(mgo_db)
@@ -91,9 +118,9 @@ func ModelsDelete(mgo_db string, qry interface{}, dm DataModel) error {
 	if conn, c, ok := GetTableConn(mgo_db, dm); ok {
 
 		info, err := c.RemoveAll(qry)
-		Debug("MGOU ", info, " table=", dm.Type())
+		//Debug("MGOU ", info, "delete from table=", dm.Type())
 		if err != nil {
-			Log(ERROR, "MGOU could not delete items? ", err)
+			Log(ERROR, "MGOU could not delete items? ", err, info)
 			return err
 		}
 		conn.Close()
@@ -107,6 +134,20 @@ func ModelsDelete(mgo_db string, qry interface{}, dm DataModel) error {
 func ModelGet(mgo_db string, qry interface{}, dm DataModel) (err error) {
 	if conn, c, ok := GetTableConn(mgo_db, dm); ok {
 		err = c.Find(qry).One(dm)
+		conn.Close()
+	} else {
+		Log(ERROR, "MGOU Could not get conn for ", dm.Type())
+		err = errors.New("Could not get db conn")
+	}
+	return
+}
+
+// perform an update
+func Update(mgo_db string, selector, update interface{}, dm DataModel) (err error) {
+	if conn, c, ok := GetTableConn(mgo_db, dm); ok {
+		if err = c.Update(selector, update); err != nil {
+			Log(ERROR, "MGOU ERROR on update ", err)
+		}
 		conn.Close()
 	} else {
 		Log(ERROR, "MGOU Could not get conn for ", dm.Type())
