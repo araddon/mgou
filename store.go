@@ -33,6 +33,7 @@ func MgoConnGet(name string) (*mgo.Session, error) {
 	var s *MgoSession
 	var found bool
 	mgoMu.Lock()
+	defer mgoMu.Unlock()
 	if s, found = mgoSessions[name]; !found {
 		s = new(MgoSession)
 		session, err := mgo.Dial(mgo_conn)
@@ -44,7 +45,6 @@ func MgoConnGet(name string) (*mgo.Session, error) {
 		}
 		mgoSessions[name] = s
 	}
-	mgoMu.Unlock()
 	if s.S != nil {
 		return s.S.Copy(), nil
 	}
