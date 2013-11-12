@@ -16,6 +16,8 @@ var (
 )
 
 func SetMongoInfo(conn string) {
+	mgoMu.Lock()
+	defer mgoMu.Unlock()
 	mgo_conn = conn
 }
 
